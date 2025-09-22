@@ -6,7 +6,11 @@ import type { Todo } from './todosSlice';
 import TodoItem from './TodoItem';
 
 const TodoList: React.FC = () => {
-  const todos = useAppSelector((state: RootState) => (state.todos as { items: Todo[] }).items);
+  const todos = useAppSelector((state: RootState) => {
+    const user = (state.user as { name: string }).name || '_anon';
+    const itemsByUser = (state.todos as { itemsByUser: Record<string, Todo[]> }).itemsByUser;
+    return itemsByUser[user] || [];
+  });
 
   if (todos.length === 0) {
     return <div className="text-center text-muted">No todos yet.</div>;

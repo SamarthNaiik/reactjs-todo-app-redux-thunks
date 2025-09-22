@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { RootState } from './store';
 
 export interface Todo {
   id: string;
@@ -8,20 +9,24 @@ export interface Todo {
 }
 
 interface TodosState {
-  items: Todo[];
+  // Map of username -> that user's todos
+  itemsByUser: Record<string, Todo[]>;
 }
 
 const initialState: TodosState = {
-  items: [],
+  itemsByUser: {},
 };
 
 // Simulate async API with setTimeout
 export const addTodo = createAsyncThunk(
   'todos/addTodo',
-  async (name: string) => {
-    return new Promise<Todo>((resolve) => {
+  async (name: string, { getState }) => {
+    // We only need to return the todo payload; the reducer will place it under the current user
+    const _state = getState() as RootState;
+    const user = (_state.user as { name: string }).name || '_anon';
+    return new Promise<{ user: string; todo: Todo }>((resolve) => {
       setTimeout(() => {
-        resolve({ id: Date.now().toString(), name, completed: false });
+        resolve({ user, todo: { id: Date.now().toString(), name, completed: false } });
       }, 300);
     });
   }
@@ -29,10 +34,12 @@ export const addTodo = createAsyncThunk(
 
 export const toggleTodo = createAsyncThunk(
   'todos/toggleTodo',
-  async (id: string) => {
-    return new Promise<string>((resolve) => {
+  async (id: string, { getState }) => {
+    const _state = getState() as RootState;
+    const user = (_state.user as { name: string }).name || '_anon';
+    return new Promise<{ user: string; id: string }>((resolve) => {
       setTimeout(() => {
-        resolve(id);
+        resolve({ user, id });
       }, 200);
     });
   }
@@ -40,10 +47,12 @@ export const toggleTodo = createAsyncThunk(
 
 export const removeTodo = createAsyncThunk(
   'todos/removeTodo',
-  async (id: string) => {
-    return new Promise<string>((resolve) => {
+  async (id: string, { getState }) => {
+    const _state = getState() as RootState;
+    const user = (_state.user as { name: string }).name || '_anon';
+    return new Promise<{ user: string; id: string }>((resolve) => {
       setTimeout(() => {
-        resolve(id);
+        resolve({ user, id });
       }, 200);
     });
   }
@@ -51,10 +60,12 @@ export const removeTodo = createAsyncThunk(
 
 export const updateTodo = createAsyncThunk(
   'todos/updateTodo',
-  async ({ id, name }: { id: string; name: string }) => {
-    return new Promise<{ id: string; name: string }>((resolve) => {
+  async ({ id, name }: { id: string; name: string }, { getState }) => {
+    const _state = getState() as RootState;
+    const user = (_state.user as { name: string }).name || '_anon';
+    return new Promise<{ user: string; id: string; name: string }>((resolve) => {
       setTimeout(() => {
-        resolve({ id, name });
+        resolve({ user, id, name });
       }, 200);
     });
   }
@@ -66,19 +77,27 @@ const todosSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(addTodo.fulfilled, (state, action: PayloadAction<Todo>) => {
-        state.items.push(action.payload);
+      .addCase(addTodo.fulfilled, (state, action: PayloadAction<{ user: string; todo: Todo }>) => {
+        const { user, todo } = action.payload;
+        if (!state.itemsByUser[user]) state.itemsByUser[user] = [];
+        state.itemsByUser[user].push(todo);
       })
-      .addCase(toggleTodo.fulfilled, (state, action: PayloadAction<string>) => {
-        const todo = state.items.find((t) => t.id === action.payload);
+      .addCase(toggleTodo.fulfilled, (state, action: PayloadAction<{ user: string; id: string }>) => {
+        const { user, id } = action.payload;
+        const list = state.itemsByUser[user] || [];
+        const todo = list.find((t) => t.id === id);
         if (todo) todo.completed = !todo.completed;
       })
-      .addCase(removeTodo.fulfilled, (state, action: PayloadAction<string>) => {
-        state.items = state.items.filter((t) => t.id !== action.payload);
+      .addCase(removeTodo.fulfilled, (state, action: PayloadAction<{ user: string; id: string }>) => {
+        const { user, id } = action.payload;
+        const list = state.itemsByUser[user] || [];
+        state.itemsByUser[user] = list.filter((t) => t.id !== id);
       })
-      .addCase(updateTodo.fulfilled, (state, action: PayloadAction<{ id: string; name: string }>) => {
-        const todo = state.items.find((t) => t.id === action.payload.id);
-        if (todo) todo.name = action.payload.name;
+      .addCase(updateTodo.fulfilled, (state, action: PayloadAction<{ user: string; id: string; name: string }>) => {
+        const { user, id, name } = action.payload;
+        const list = state.itemsByUser[user] || [];
+        const todo = list.find((t) => t.id === id);
+        if (todo) todo.name = name;
       });
   },
 });

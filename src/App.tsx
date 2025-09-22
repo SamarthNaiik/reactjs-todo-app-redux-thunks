@@ -9,7 +9,11 @@ import { logout } from './authSlice';
 
 function App() {
   const userName = useAppSelector((state) => (state.user as { name: string }).name);
-  const todoCount = useAppSelector((state) => (state.todos as { items: unknown[] }).items.length);
+  const todoCount = useAppSelector((state) => {
+    const user = (state.user as { name: string }).name || '_anon';
+    const itemsByUser = (state.todos as { itemsByUser: Record<string, unknown[]> }).itemsByUser;
+    return (itemsByUser[user] || []).length;
+  });
   const isAuthenticated = useAppSelector((state) => (state as any).auth.isAuthenticated as boolean);
   const loadingAuth = useAppSelector((state) => (state as any).auth.loading as boolean);
   const dispatch = useAppDispatch();
@@ -67,4 +71,5 @@ function App() {
 }
 
 export default App;
+
 
